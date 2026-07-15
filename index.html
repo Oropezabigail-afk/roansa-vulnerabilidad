@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Estudio de Vulnerabilidad — App de Recorrido (ASIS International)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    /* Identidad institucional ROANSA: rojo, negro, gris, blanco */
+    --navy:#1a1a1a;
+    --navy2:#2e2e2e;
+    --steel:#5a5a5a;
+    --gold:#c8102e;
+    --red:#b23a3a;
+    --green:#2f7d4f;
+    --yellow:#c99a1f;
+    --orange:#c9701f;
+    --bg:#f2f2f2;
+    --card:#ffffff;
+    --ink:#1c1c1c;
+    --muted:#737373;
+    --border:#dfe0e1;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);}
+  header.topbar{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+  header.topbar .brand{display:flex;align-items:center;gap:10px;}
+  header.topbar .brand-logo{width:38px;height:38px;border-radius:6px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;cursor:pointer;border:1px dashed rgba(255,255,255,.4);}
+  header.topbar .brand-logo img{width:100%;height:100%;object-fit:cover;}
+  header.topbar h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.3px;}
+  header.topbar .sub{font-size:11px;opacity:.75;margin-top:2px;}
+  header.topbar input.company-name{background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,.35);color:#fff;font-size:13px;padding:2px 4px;width:180px;}
+  header.topbar input.company-name::placeholder{color:rgba(255,255,255,.55);}
+  .progress-wrap{flex:1;min-width:140px;max-width:220px;}
+  .progress-bar-bg{background:rgba(255,255,255,.15);border-radius:20px;height:8px;overflow:hidden;}
+  .progress-bar-fill{background:var(--gold);height:100%;transition:width .3s;}
+  .progress-label{font-size:10px;opacity:.8;margin-top:3px;}
+
+  .layout{display:flex;min-height:calc(100vh - 64px);}
+  nav.sidebar{width:230px;background:#fff;border-right:1px solid var(--border);padding:10px 0;flex-shrink:0;}
+  nav.sidebar button.navitem{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;padding:11px 16px;font-size:13.5px;color:var(--ink);cursor:pointer;border-left:3px solid transparent;}
+  nav.sidebar button.navitem:hover{background:#f4f6f8;}
+  nav.sidebar button.navitem.active{background:#eef3f7;border-left-color:var(--gold);font-weight:700;color:var(--navy);}
+  nav.sidebar button.navitem .badge{margin-left:auto;font-size:10px;background:var(--border);color:var(--muted);border-radius:10px;padding:1px 7px;}
+  nav.sidebar button.navitem.done .badge{background:var(--green);color:#fff;}
+  nav.sidebar button.navitem.partial .badge{background:var(--yellow);color:#fff;}
+
+  main.content{flex:1;padding:20px;max-width:900px;margin:0 auto;width:100%;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px;}
+  .card h2{margin:0 0 4px;font-size:19px;color:var(--navy);}
+  .card .desc{font-size:12.5px;color:var(--muted);margin-bottom:14px;}
+  label.field-label{display:block;font-size:12px;font-weight:600;color:var(--steel);margin:10px 0 4px;}
+  input[type=text],input[type=date],textarea,select{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:6px;font-size:13.5px;font-family:inherit;background:#fbfcfd;}
+  textarea{resize:vertical;min-height:56px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
+  @media (max-width:640px){.grid2{grid-template-columns:1fr;}}
+
+  .item-block{border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:12px;background:#fdfefe;}
+  .item-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;}
+  .item-text{font-size:13.5px;font-weight:600;color:var(--ink);flex:1;}
+  .item-weight{font-size:10px;color:#fff;background:var(--steel);border-radius:10px;padding:2px 7px;white-space:nowrap;height:fit-content;}
+  .status-row{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .status-btn{flex:1;min-width:76px;padding:7px 4px;border-radius:6px;border:1px solid var(--border);background:#fff;font-size:11.5px;font-weight:600;cursor:pointer;text-align:center;color:var(--muted);}
+  .status-btn[data-status="cumple"].active{background:var(--green);border-color:var(--green);color:#fff;}
+  .status-btn[data-status="parcial"].active{background:var(--yellow);border-color:var(--yellow);color:#fff;}
+  .status-btn[data-status="no_cumple"].active{background:var(--red);border-color:var(--red);color:#fff;}
+  .status-btn[data-status="na"].active{background:var(--muted);border-color:var(--muted);color:#fff;}
+  .risk-row{display:none;gap:10px;margin-top:10px;}
+  .risk-row.show{display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:8px;}
+  .risk-badge{font-size:11px;font-weight:700;color:#fff;border-radius:6px;padding:8px 10px;text-align:center;white-space:nowrap;}
+  .photo-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center;}
+  .thumb{position:relative;width:64px;height:64px;border-radius:6px;overflow:hidden;border:1px solid var(--border);}
+  .thumb img{width:100%;height:100%;object-fit:cover;}
+  .thumb .rm{position:absolute;top:0;right:0;background:rgba(178,58,58,.9);color:#fff;border:none;width:18px;height:18px;font-size:11px;line-height:1;cursor:pointer;border-radius:0 0 0 6px;}
+  .addphoto-btn{width:64px;height:64px;border:2px dashed var(--border);border-radius:6px;background:#fafbfc;color:var(--steel);font-size:9px;line-height:1.1;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:2px;}
+  .obs-field{margin-top:8px;}
+
+  .actionbar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--border);padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+  .btn{padding:9px 16px;border-radius:7px;border:1px solid var(--border);background:#fff;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--ink);}
+  .btn.primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+  .btn.gold{background:var(--gold);border-color:var(--gold);color:#fff;}
+  .btn.danger{background:var(--red);border-color:var(--red);color:#fff;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn.small{padding:5px 10px;font-size:11px;}
+
+  .summary-cat{margin-bottom:12px;}
+  .summary-cat .row{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;}
+  .bar-bg{background:#eef1f3;border-radius:8px;height:10px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:8px;}
+  .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  @media (max-width:640px){.kpi-grid{grid-template-columns:1fr 1fr;}}
+  .kpi{background:#f7f9fa;border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;}
+  .kpi .num{font-size:22px;font-weight:800;color:var(--navy);}
+  .kpi .lab{font-size:10.5px;color:var(--muted);margin-top:2px;}
+
+  table.findings{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;}
+  table.findings th,table.findings td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top;}
+  table.findings th{background:#f4f6f8;}
+  .lvl-pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;color:#fff;}
+
+  .matrix-table{border-collapse:collapse;margin:10px auto;}
+  .matrix-table td,.matrix-table th{border:1px solid #fff;width:44px;height:34px;text-align:center;font-size:11px;color:#fff;font-weight:700;}
+  .matrix-table th{background:var(--navy);color:#fff;font-size:10px;}
+
+  canvas.sigpad{border:1px dashed var(--border);border-radius:8px;width:100%;height:140px;background:#fff;touch-action:none;}
+  .sig-block{margin-bottom:18px;}
+  .sig-name-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
+
+  .helpbox{background:#eef3f7;border:1px solid #d8e3ec;border-radius:8px;padding:12px 14px;font-size:12px;color:var(--steel);line-height:1.5;}
+  .tag{display:inline-block;background:var(--navy);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-right:4px;}
+
+  @media (max-width:800px){
+    .layout{flex-direction:column;}
+    nav.sidebar{width:100%;display:flex;overflow-x:auto;padding:6px 4px;border-right:none;border-bottom:1px solid var(--border);white-space:nowrap;}
+    nav.sidebar button.navitem{width:auto;border-left:none;border-bottom:3px solid transparent;flex-shrink:0;}
+    nav.sidebar button.navitem.active{border-bottom-color:var(--gold);background:none;}
+    main.content{padding:12px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-logo" id="logoPicker" title="Cargar logo de la empresa">
+      <span id="logoPlaceholder" style="font-size:16px;">🛡️</span>
+      <img id="logoImg" style="display:none;">
+    </div>
+    <input type="file" id="logoInput" accept="image/*" style="display:none;">
+    <div>
+      <h1>Estudio de Vulnerabilidad</h1>
+      <div class="sub">Metodología ASIS International</div>
+    </div>
+  </div>
+  <input class="company-name" id="companyNameInput" placeholder="Nombre de tu empresa de seguridad">
+  <div class="progress-wrap">
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-label" id="progressLabel">0% del recorrido completado</div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main class="content" id="content"></main>
+</div>
+
+<div class="actionbar">
+  <button class="btn small" id="btnLoad">📂 Cargar avance</button>
+  <input type="file" id="loadInput" accept="application/json" style="display:none;">
+  <button class="btn small" id="btnSave">💾 Guardar avance</button>
+  <button class="btn small danger" id="btnNew">🆕 Nuevo servicio</button>
+</div>
+
+<script>
+/* =========================================================
+   ESTUDIO DE VULNERABILIDAD — App de recorrido
+   Metodología: ASIS GDL FPSM (8 categorías de medidas de
+   seguridad física), ASIS GDL GSRA (proceso de evaluación
+   de riesgo), ASIS ESRM Guideline 2019, complementado con
+   ISO 31000:2018 (Gestión del Riesgo) y principios CPTED.
+   ========================================================= */
+
+const CATEGORY_DEFS = [
+  { id:"cpted", name:"CPTED — Prevención Ambiental del Delito", items:[
+    {t:"Vigilancia natural: líneas de visión sin obstrucciones hacia accesos y áreas críticas (vegetación podada, sin mobiliario que bloquee visibilidad).", w:2, r:"Podar vegetación y reubicar mobiliario que obstruya la visibilidad hacia accesos y puntos críticos."},
+    {t:"Control de acceso natural: rutas de circulación claramente definidas que conducen el flujo de personas y vehículos hacia los puntos de control.", w:2, r:"Delimitar rutas de circulación con señalización y elementos físicos que dirijan el flujo hacia los puntos de control."},
+    {t:"Reforzamiento territorial: límites de propiedad claramente marcados (cercas simbólicas, señalización de propiedad privada).", w:1, r:"Instalar señalización de límites de propiedad y elementos de reforzamiento territorial en todo el perímetro."},
+    {t:"Mantenimiento y orden (teoría de ventanas rotas): fachadas y áreas comunes en buen estado, sin grafiti ni acumulación de basura.", w:1, r:"Implementar programa de mantenimiento correctivo y limpieza para eliminar señales de deterioro y abandono."},
+    {t:"Zonificación de áreas públicas, semipúblicas, privadas y restringidas debidamente identificada.", w:2, r:"Definir y señalizar la zonificación de áreas según su nivel de restricción."},
+    {t:"Diseño y ubicación de estacionamientos con buena visibilidad y cercanía a accesos controlados.", w:2, r:"Reubicar o mejorar la iluminación/visibilidad de los estacionamientos alejados de los puntos de control."}
+  ]},
+  { id:"barreras", name:"Barreras Físicas y Endurecimiento del Sitio", items:[
+    {t:"Perímetro (bardas/cercas) con altura mínima adecuada (≈2.4 m), sin daños, huecos ni puntos de escalamiento.", w:3, r:"Reparar tramos dañados del perímetro y elevar la altura donde no cumpla el mínimo recomendado."},
+    {t:"Portones vehiculares y peatonales operan correctamente y cuentan con cierre/aseguramiento confiable.", w:3, r:"Dar mantenimiento a mecanismos de portones y garantizar cierre automático o procedimiento de aseguramiento."},
+    {t:"Barreras anti-vehículo (bolardos, plumas, dientes de dragón) presentes en accesos identificados como críticos.", w:2, r:"Instalar barreras anti-embestida en los accesos vehiculares críticos."},
+    {t:"Puertas, ventanas y muros de áreas sensibles con resistencia y cerraduras adecuadas al nivel de riesgo.", w:2, r:"Reforzar puertas/ventanas de áreas sensibles con materiales y chapas de mayor resistencia."},
+    {t:"Identificación y control de puntos ciegos del perímetro (colindancias, azoteas, áreas de carga y descarga).", w:3, r:"Instalar barreras, sensores o cámaras adicionales en los puntos ciegos identificados del perímetro."},
+    {t:"Protección física reforzada de activos críticos internos (cuarto eléctrico, servidores, bóveda, químicos).", w:3, r:"Reforzar el control de acceso y la protección física de los cuartos de activos críticos."}
+  ]},
+  { id:"acceso", name:"Control de Acceso Físico", items:[
+    {t:"Sistema de control de acceso electrónico (tarjetas/biometría) funcional en todos los puntos designados.", w:3, r:"Reparar o actualizar el sistema de control de acceso electrónico en los puntos con falla."},
+    {t:"Procedimiento formal de identificación y registro de visitantes, proveedores y contratistas.", w:2, r:"Establecer un procedimiento documentado de identificación y registro de visitantes y contratistas."},
+    {t:"Bitácora de entradas y salidas de personal, vehículos y visitantes debidamente actualizada.", w:2, r:"Implementar o actualizar la bitácora de control de entradas y salidas."},
+    {t:"Áreas restringidas cuentan con controles adicionales (doble autenticación, anti-passback, escolta obligatoria).", w:3, r:"Incorporar controles reforzados (doble factor, escolta) en áreas restringidas."},
+    {t:"Gestión y control de llaves/credenciales: inventario actualizado y revocación oportuna en bajas de personal.", w:2, r:"Actualizar el inventario de llaves/credenciales y establecer procedimiento de revocación inmediata al causar baja."},
+    {t:"Puertas de emergencia cuentan con alarma local y no se utilizan como acceso habitual.", w:2, r:"Instalar alarma local en puertas de emergencia y sancionar su uso indebido como acceso regular."}
+  ]},
+  { id:"iluminacion", name:"Iluminación de Seguridad", items:[
+    {t:"Niveles de iluminación adecuados en accesos peatonales y vehiculares.", w:2, r:"Incrementar los niveles de iluminación en accesos mediante luminarias adicionales o de mayor potencia."},
+    {t:"Iluminación perimetral continua, sin tramos oscuros.", w:2, r:"Cubrir los tramos perimetrales sin iluminación con luminarias adicionales."},
+    {t:"Estacionamientos y áreas de tránsito peatonal cuentan con iluminación suficiente.", w:2, r:"Mejorar la iluminación de estacionamientos y áreas peatonales de tránsito nocturno."},
+    {t:"Programa de mantenimiento de luminarias (reemplazo de focos fundidos, limpieza de lentes).", w:1, r:"Establecer programa de mantenimiento preventivo de luminarias."},
+    {t:"Iluminación de emergencia con respaldo eléctrico (planta/UPS) operativa.", w:2, r:"Verificar y dar mantenimiento al sistema de respaldo eléctrico de la iluminación de emergencia."}
+  ]},
+  { id:"deteccion", name:"Sistemas de Detección de Intrusión", items:[
+    {t:"Sensores perimetrales (cerca sensorizada, PIR, microondas, doble tecnología) operativos.", w:3, r:"Reparar o instalar sensores perimetrales en los tramos sin cobertura."},
+    {t:"Sensores en puertas y ventanas de áreas críticas funcionando correctamente.", w:3, r:"Revisar y reparar sensores de apertura en puertas/ventanas de áreas críticas."},
+    {t:"Central de monitoreo de alarmas cuenta con respaldo de energía y comunicación redundante.", w:2, r:"Dotar a la central de monitoreo de respaldo de energía y enlace de comunicación redundante."},
+    {t:"Existe bitácora de pruebas y mantenimiento periódico del sistema de intrusión.", w:1, r:"Implementar bitácora de pruebas periódicas del sistema de detección de intrusión."},
+    {t:"Protocolo documentado de respuesta ante activación de alarma, con tiempos de reacción definidos.", w:2, r:"Documentar y difundir el protocolo de respuesta ante activación de alarmas."}
+  ]},
+  { id:"cctv", name:"Videovigilancia (CCTV)", items:[
+    {t:"Cobertura de cámaras en accesos, perímetro y áreas de carga/descarga sin puntos ciegos relevantes.", w:3, r:"Ampliar la cobertura de cámaras para eliminar los puntos ciegos detectados."},
+    {t:"Calidad de imagen suficiente para identificación de personas y placas vehiculares.", w:2, r:"Sustituir o reubicar cámaras con resolución/enfoque insuficiente para identificación."},
+    {t:"Los días de retención de grabación y respaldo cumplen con la política de la organización.", w:2, r:"Ampliar la capacidad de almacenamiento para cumplir con el periodo de retención requerido."},
+    {t:"Monitoreo en tiempo real cubierto en todos los turnos (personal dedicado o alertas configuradas).", w:2, r:"Asignar personal o configurar alertas para asegurar monitoreo en tiempo real en todos los turnos."},
+    {t:"Mantenimiento preventivo de cámaras (limpieza de lentes, verificación de ángulos y enfoque).", w:1, r:"Establecer programa de mantenimiento preventivo del sistema de CCTV."}
+  ]},
+  { id:"personal", name:"Personal de Seguridad", items:[
+    {t:"Dotación de personal (número de elementos y turnos) adecuada al nivel de riesgo del sitio.", w:3, r:"Ajustar la dotación de personal de seguridad conforme al nivel de riesgo identificado."},
+    {t:"El personal cuenta con capacitación y certificación vigente (uso de fuerza, primeros auxilios, protocolos).", w:2, r:"Programar capacitación/certificación vigente para el personal de seguridad."},
+    {t:"Consignas y procedimientos operativos por puesto están documentados, actualizados y disponibles.", w:2, r:"Elaborar o actualizar las consignas de seguridad por puesto."},
+    {t:"El personal cuenta con equipamiento adecuado (radio, uniforme, equipo de protección personal).", w:1, r:"Dotar al personal de seguridad del equipamiento faltante."},
+    {t:"Existe un sistema de supervisión y control de rondines (garitas electrónicas, checkpoints, GPS).", w:2, r:"Implementar un sistema de control de rondines (garitas electrónicas o checkpoints)."}
+  ]},
+  { id:"politicas", name:"Políticas y Procedimientos de Seguridad", items:[
+    {t:"Plan de seguridad y protección documentado, vigente y aprobado por la dirección.", w:3, r:"Elaborar o actualizar el plan de seguridad y protección del sitio."},
+    {t:"Plan de emergencias y continuidad de negocio documentado y con simulacros periódicos.", w:2, r:"Desarrollar/actualizar el plan de emergencias y realizar simulacros periódicos."},
+    {t:"Procedimiento de gestión, investigación y reporte de incidentes de seguridad.", w:2, r:"Formalizar el procedimiento de reporte e investigación de incidentes."},
+    {t:"Programa de capacitación y cultura de seguridad dirigido a todo el personal de la organización.", w:1, r:"Implementar programa de sensibilización y cultura de seguridad para empleados."},
+    {t:"Cumplimiento de la normativa local de seguridad privada y protección civil aplicable al sitio.", w:3, r:"Verificar y regularizar el cumplimiento de la normativa local de seguridad privada y protección civil vigente."},
+    {t:"Revisión y actualización periódica (al menos anual) de políticas y procedimientos de seguridad.", w:1, r:"Establecer un ciclo de revisión anual de políticas y procedimientos de seguridad."}
+  ]}
+];
+
+const SUPERVISORES = ["Uriell Medina", "Enrique Huitron"];
+const DEFAULT_COMPANY_NAME = "ROANSA SEGURIDAD PRIVADA";
+const DEFAULT_ALCANCE = "Evaluación de vulnerabilidad física de las instalaciones del cliente, considerando perímetro, accesos, sistemas electrónicos de seguridad (CCTV, control de acceso, detección de intrusión), iluminación, personal de seguridad y procedimientos, conforme a la metodología de ASIS International (ASIS GDL FPSM / ASIS GDL GSRA / ASIS ESRM) y en apego a la normativa local de seguridad privada y protección civil aplicable.";
+
+// Marca por defecto de ROANSA (aproximación vectorial en los colores institucionales:
+// rojo / negro / gris / blanco). Si prefieres el archivo exacto de tu logo, usa el botón
+// "Cargar logo" del encabezado para sustituirlo — se usará de inmediato en la portada del PDF.
+const DEFAULT_LOGO_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 190">
+  <g transform="translate(80,8)">
+    <polygon points="50,0 100,50 50,50" fill="#c8102e"/>
+    <polygon points="100,50 50,100 50,50" fill="#8c8c8c"/>
+    <polygon points="50,100 0,50 50,50" fill="#c8102e"/>
+    <polygon points="0,50 50,0 50,50" fill="#8c8c8c"/>
+  </g>
+  <text x="130" y="140" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="800" text-anchor="middle">
+    <tspan fill="#c8102e">ROA</tspan><tspan fill="#2b2b2b">NSA</tspan><tspan font-size="14" dy="-16" fill="#2b2b2b">&#174;</tspan>
+  </text>
+  <text x="130" y="162" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="600" fill="#737373" text-anchor="middle" letter-spacing="3">SEGURIDAD PRIVADA</text>
+</svg>`;
+
+function svgToJpegDataUrl(svgString, w, h){
+  return new Promise((resolve, reject)=>{
+    const blob = new Blob([svgString], {type:"image/svg+xml;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = ()=>{
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,w,h);
+      ctx.drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg",0.92));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+async function initDefaultLogo(){
+  if(state.company.logo) return; // ya cargado (por ejemplo, restaurado desde un avance guardado)
+  try{
+    state.company.logo = await svgToJpegDataUrl(DEFAULT_LOGO_SVG, 520, 380);
+    renderTopbarState();
+  }catch(e){ console.warn("No se pudo generar el logo por defecto:", e); }
+}
+
+function freshState(){
+  return {
+    company:{ name:DEFAULT_COMPANY_NAME, logo:null },
+    client:{ logo:null },
+    service:{ cliente:"", sitio:"", direccion:"", tipo:"", fecha:new Date().toISOString().slice(0,10), supervisor:"", alcance:DEFAULT_ALCANCE },
+    categories: CATEGORY_DEFS.map(c=>({
+      id:c.id, name:c.name,
+      items:c.items.map((it,idx)=>({ id:c.id+"_"+idx, t:it.t, w:it.w, r:it.r, status:null, prob:null, impact:null, obs:"", photos:[] }))
+    })),
+    signatures:{ supervisor:null, supervisorName:"", supervisorCargo:"", cliente:null, clienteName:"", clienteCargo:"" }
+  };
+}
+
+let state = freshState();
+let currentSection = "portada"; // portada | <cat.id> | firmas | resumen
+
+const SECTIONS = () => ["portada", ...CATEGORY_DEFS.map(c=>c.id), "firmas", "resumen"];
+
+// ---------- helpers ----------
+function riskLevel(score){
+  if(score>=16) return {label:"Crítico", color:"var(--red)"};
+  if(score>=10) return {label:"Alto", color:"var(--orange)"};
+  if(score>=5)  return {label:"Medio", color:"var(--yellow)"};
+  return {label:"Bajo", color:"var(--green)"};
+}
+function pdfColor(level){
+  // returns [r,g,b]
+  if(level==="Crítico") return [178,58,58];
+  if(level==="Alto") return [201,112,31];
+  if(level==="Medio") return [201,154,31];
+  return [47,125,79];
+}
+
+function categoryStats(cat){
+  let totalW=0, credit=0, rated=0;
+  cat.items.forEach(it=>{
+    if(it.status===null || it.status==="na") return;
+    rated++;
+    totalW += it.w;
+    if(it.status==="cumple") credit += it.w;
+    else if(it.status==="parcial") credit += it.w*0.5;
+  });
+  const pct = totalW>0 ? Math.round((credit/totalW)*100) : null;
+  return {pct, rated, total:cat.items.length};
+}
+
+function overallStats(){
+  let totalW=0, credit=0, answered=0, totalItems=0;
+  state.categories.forEach(cat=>{
+    totalItems += cat.items.length;
+    cat.items.forEach(it=>{
+      if(it.status!==null) answered++;
+      if(it.status===null || it.status==="na") return;
+      totalW += it.w;
+      if(it.status==="cumple") credit += it.w;
+      else if(it.status==="parcial") credit += it.w*0.5;
+    });
+  });
+  const pct = totalW>0 ? Math.round((credit/totalW)*100) : 0;
+  const progress = totalItems>0 ? Math.round((answered/totalItems)*100) : 0;
+  return {compliance:pct, vulnerability:100-pct, progress, answered, totalItems};
+}
+
+function criticalFindings(){
+  const out=[];
+  state.categories.forEach(cat=>{
+    cat.items.forEach(it=>{
+      if((it.status==="parcial"||it.status==="no_cumple") && it.prob && it.impact){
+        const score = it.prob*it.impact;
+        out.push({cat:cat.name, text:it.t, status:it.status, score, level:riskLevel(score).label, obs:it.obs, rec:it.r, photos:it.photos});
+      }
+    });
+  });
+  out.sort((a,b)=>b.score-a.score);
+  return out;
+}
+
+function plazoFor(level){
+  if(level==="Crítico") return "Inmediato (0–15 días)";
+  if(level==="Alto") return "Corto plazo (≈30 días)";
+  if(level==="Medio") return "Mediano plazo (≈90 días)";
+  return "Mantenimiento continuo";
+}
+
+// ---------- image resize ----------
+function resizeImageFile(file, maxW){
+  return new Promise((resolve)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > maxW){ h = Math.round(h*(maxW/w)); w = maxW; }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img,0,0,w,h);
+        resolve({ data: canvas.toDataURL("image/jpeg",0.6), w, h });
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ---------- rendering ----------
+function renderSidebar(){
+  const nav = document.getElementById("sidebar");
+  nav.innerHTML = "";
+  const items = [
+    {id:"portada", label:"📋 Datos del servicio"},
+    ...CATEGORY_DEFS.map(c=>({id:c.id, label:c.name})),
+    {id:"firmas", label:"✍️ Firmas"},
+    {id:"resumen", label:"📊 Resumen y PDF"}
+  ];
+  items.forEach(it=>{
+    const btn = document.createElement("button");
+    btn.className = "navitem" + (it.id===currentSection ? " active":"");
+    let badgeHtml = "";
+    const cat = state.categories.find(c=>c.id===it.id);
+    if(cat){
+      const s = categoryStats(cat);
+      if(s.rated===cat.items.length && cat.items.length>0){ btn.classList.add("done"); badgeHtml = `<span class="badge">${s.pct}%</span>`; }
+      else if(s.rated>0){ btn.classList.add("partial"); badgeHtml = `<span class="badge">${s.rated}/${cat.items.length}</span>`; }
+      else { badgeHtml = `<span class="badge">${cat.items.length}</span>`; }
+    }
+    btn.innerHTML = `<span>${it.label}</span>${badgeHtml}`;
+    btn.onclick = ()=>{ currentSection = it.id; renderAll(); window.scrollTo(0,0); };
+    nav.appendChild(btn);
+  });
+}
+
+function renderTopbarState(){
+  document.getElementById("companyNameInput").value = state.company.name;
+  if(state.company.logo){
+    document.getElementById("logoImg").src = state.company.logo;
+    document.getElementById("logoImg").style.display = "block";
+    document.getElementById("logoPlaceholder").style.display = "none";
+  }
+  const st = overallStats();
+  document.getElementById("progressFill").style.width = st.progress + "%";
+  document.getElementById("progressLabel").textContent = st.progress + "% del recorrido completado (" + st.answered + "/" + st.totalItems + " puntos)";
+}
+
+function renderContent(){
+  const el = document.getElementById("content");
+  if(currentSection === "portada"){ el.innerHTML = portadaHTML(); bindPortada(); }
+  else if(currentSection === "firmas"){ el.innerHTML = firmasHTML(); bindFirmas(); }
+  else if(currentSection === "resumen"){ el.innerHTML = resumenHTML(); bindResumen(); }
+  else {
+    const cat = state.categories.find(c=>c.id===currentSection);
+    el.innerHTML = categoryHTML(cat);
+    bindCategory(cat);
+  }
+}
+
+function renderAll(){ renderSidebar(); renderTopbarState(); renderContent(); }
+
+// ---------- Portada ----------
+function portadaHTML(){
+  const s = state.service;
+  return `
+  <div class="card">
+    <h2>Datos del servicio</h2>
+    <div class="desc">Información general de la instalación a evaluar. Se usará como portada del reporte final.</div>
+    <div class="grid2">
+      <div><label class="field-label">Cliente</label><input type="text" id="f_cliente" value="${esc(s.cliente)}"></div>
+      <div><label class="field-label">Sitio / Instalación</label><input type="text" id="f_sitio" value="${esc(s.sitio)}"></div>
+      <div><label class="field-label">Dirección</label><input type="text" id="f_direccion" value="${esc(s.direccion)}"></div>
+      <div><label class="field-label">Tipo de instalación</label>
+        <select id="f_tipo">
+          ${["Corporativo / Oficinas","Industrial / Planta","Logístico / Bodega","Comercial / Retail","Otro"].map(o=>`<option ${s.tipo===o?"selected":""}>${o}</option>`).join("")}
+        </select>
+      </div>
+      <div><label class="field-label">Fecha del servicio</label><input type="date" id="f_fecha" value="${esc(s.fecha)}"></div>
+      <div><label class="field-label">Supervisor / Inspector</label>
+        <select id="f_supervisor">
+          <option value="" ${s.supervisor===""?"selected":""}>Selecciona...</option>
+          ${SUPERVISORES.map(n=>`<option ${s.supervisor===n?"selected":""}>${n}</option>`).join("")}
+        </select>
+      </div>
+    </div>
+    <label class="field-label">Alcance del estudio</label>
+    <textarea id="f_alcance">${esc(s.alcance)}</textarea>
+  </div>
+  <div class="card">
+    <h2 style="font-size:15px;">Logo del cliente (opcional)</h2>
+    <div class="desc">Se incluye en la portada del reporte junto con el logo de ${esc(state.company.name)||"tu empresa"}.</div>
+    <div class="photo-row">
+      ${state.client.logo ? `<div class="thumb" style="width:70px;height:70px;"><img src="${state.client.logo}"><button class="rm" id="rmClientLogo">✕</button></div>` : ""}
+      <label class="addphoto-btn" style="width:70px;height:70px;">📎<span>Logo</span><input type="file" accept="image/*" id="clientLogoInput" style="display:none"></label>
+    </div>
+  </div>
+  <div class="helpbox">
+    <span class="tag">Metodología</span> Este estudio sigue la estructura de 8 categorías de medidas de seguridad física de <b>ASIS GDL FPSM</b> (Facilities Physical Security Measures Guideline), el proceso de evaluación de <b>ASIS GDL GSRA</b> (General Security Risk Assessment) y los principios de <b>ASIS ESRM</b> (Enterprise Security Risk Management, 2019), complementado con <b>ISO 31000:2018</b> y <b>CPTED</b>. Verifica además la normativa local de seguridad privada y protección civil aplicable a la jurisdicción del sitio.
+  </div>`;
+}
+function bindPortada(){
+  const map = {f_cliente:"cliente", f_sitio:"sitio", f_direccion:"direccion", f_tipo:"tipo", f_fecha:"fecha", f_supervisor:"supervisor", f_alcance:"alcance"};
+  Object.keys(map).forEach(id=>{
+    const el = document.getElementById(id);
+    el.addEventListener("input", ()=>{ state.service[map[id]] = el.value; renderSidebar(); });
+  });
+  const clientLogoInput = document.getElementById("clientLogoInput");
+  if(clientLogoInput) clientLogoInput.addEventListener("change", async (e)=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    const res = await resizeImageFile(f, 400);
+    state.client.logo = res.data;
+    renderContent(); // renderContent ya vuelve a llamar bindPortada()
+  });
+  const rmClientLogo = document.getElementById("rmClientLogo");
+  if(rmClientLogo) rmClientLogo.addEventListener("click", ()=>{
+    state.client.logo = null;
+    renderContent();
+  });
+}
+
+// ---------- Categoría ----------
+function categoryHTML(cat){
+  const s = categoryStats(cat);
+  return `
+  <div class="card">
+    <h2>${cat.name}</h2>
+    <div class="desc" id="catDesc_${cat.id}">${catDescText(s)}</div>
+    ${cat.items.map((it,i)=>itemHTML(cat.id, it, i)).join("")}
+  </div>`;
+}
+function catDescText(s){
+  return `${s.rated}/${s.total} puntos evaluados` + (s.pct!==null ? " · Cumplimiento parcial: "+s.pct+"%" : "");
+}
+function refreshCatDesc(catId){
+  const cat = state.categories.find(c=>c.id===catId);
+  const el = document.getElementById("catDesc_"+catId);
+  if(cat && el) el.textContent = catDescText(categoryStats(cat));
+}
+
+function itemHTML(catId, it, idx){
+  const showRisk = it.status==="parcial" || it.status==="no_cumple";
+  let badge = "";
+  if(showRisk && it.prob && it.impact){
+    const lv = riskLevel(it.prob*it.impact);
+    badge = `<div class="risk-badge" style="background:${lv.color}">Riesgo: ${lv.label} (${it.prob*it.impact})</div>`;
+  } else if(showRisk){
+    badge = `<div class="risk-badge" style="background:var(--muted)">Falta calificar</div>`;
+  }
+  return `
+  <div class="item-block" data-item="${it.id}">
+    <div class="item-top">
+      <div class="item-text">${idx+1}. ${esc(it.t)}</div>
+      <div class="item-weight">peso ${it.w}</div>
+    </div>
+    <div class="status-row">
+      <button class="status-btn" data-status="cumple" data-item="${it.id}">✔ Cumple</button>
+      <button class="status-btn" data-status="parcial" data-item="${it.id}">◐ Parcial</button>
+      <button class="status-btn" data-status="no_cumple" data-item="${it.id}">✘ No cumple</button>
+      <button class="status-btn" data-status="na" data-item="${it.id}">— N/A</button>
+    </div>
+    <div class="risk-row ${showRisk?"show":""}" data-riskrow="${it.id}">
+      <div>
+        <label class="field-label">Probabilidad (1-5)</label>
+        <select data-prob="${it.id}">
+          <option value="">-</option>
+          ${[1,2,3,4,5].map(n=>`<option value="${n}" ${it.prob==n?"selected":""}>${n}</option>`).join("")}
+        </select>
+      </div>
+      <div>
+        <label class="field-label">Impacto (1-5)</label>
+        <select data-impact="${it.id}">
+          <option value="">-</option>
+          ${[1,2,3,4,5].map(n=>`<option value="${n}" ${it.impact==n?"selected":""}>${n}</option>`).join("")}
+        </select>
+      </div>
+      ${badge}
+    </div>
+    <div class="obs-field">
+      <label class="field-label">Observaciones</label>
+      <textarea data-obs="${it.id}" placeholder="Detalles de lo observado en el recorrido...">${esc(it.obs)}</textarea>
+    </div>
+    <div class="photo-row" data-photos="${it.id}">
+      ${it.photos.map((p,pi)=>`<div class="thumb"><img src="${p.data}"><button class="rm" data-rmphoto="${it.id}|${pi}">✕</button></div>`).join("")}
+      <label class="addphoto-btn">📷<span>Tomar foto</span><input type="file" accept="image/*" capture="environment" multiple style="display:none" data-addphoto="${it.id}"></label>
+    </div>
+  </div>`;
+}
+
+function setActiveStatusButtons(itemId){
+  const it = findItem(itemId);
+  document.querySelectorAll(`.status-btn[data-item="${cssEsc(itemId)}"]`).forEach(b=>{
+    b.classList.toggle("active", b.getAttribute("data-status")===it.status);
+  });
+  const row = document.querySelector(`.risk-row[data-riskrow="${cssEsc(itemId)}"]`);
+  if(row) row.classList.toggle("show", it.status==="parcial"||it.status==="no_cumple");
+}
+
+function findItem(itemId){
+  for(const cat of state.categories) for(const it of cat.items) if(it.id===itemId) return it;
+  return null;
+}
+function cssEsc(s){ return s.replace(/"/g,'\\"'); }
+
+function bindCategory(cat){
+  cat.items.forEach(it=>{
+    document.querySelectorAll(`.status-btn[data-item="${cssEsc(it.id)}"]`).forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const st = btn.getAttribute("data-status");
+        it.status = (it.status===st) ? null : st; // toggle off if clicked again
+        setActiveStatusButtons(it.id);
+        renderSidebar();
+        refreshCatDesc(cat.id);
+        // update risk badge area without full rerender
+        refreshRiskBadge(it.id);
+      });
+    });
+    const probSel = document.querySelector(`[data-prob="${cssEsc(it.id)}"]`);
+    const impSel = document.querySelector(`[data-impact="${cssEsc(it.id)}"]`);
+    if(probSel) probSel.addEventListener("change", ()=>{ it.prob = probSel.value?parseInt(probSel.value):null; refreshRiskBadge(it.id); });
+    if(impSel) impSel.addEventListener("change", ()=>{ it.impact = impSel.value?parseInt(impSel.value):null; refreshRiskBadge(it.id); });
+
+    const obsEl = document.querySelector(`[data-obs="${cssEsc(it.id)}"]`);
+    if(obsEl) obsEl.addEventListener("input", ()=>{ it.obs = obsEl.value; });
+
+    const addPhoto = document.querySelector(`[data-addphoto="${cssEsc(it.id)}"]`);
+    if(addPhoto) addPhoto.addEventListener("change", async (e)=>{
+      const files = Array.from(e.target.files || []);
+      for(const f of files){
+        const res = await resizeImageFile(f, 1000);
+        it.photos.push(res);
+      }
+      renderContent(); // ya vuelve a enlazar los eventos de esta categoría
+    });
+  });
+  // remove photo buttons (delegate, since list can change)
+  document.querySelectorAll("[data-rmphoto]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const [itemId, pi] = btn.getAttribute("data-rmphoto").split("|");
+      const it = findItem(itemId);
+      it.photos.splice(parseInt(pi),1);
+      renderContent(); // ya vuelve a enlazar los eventos de esta categoría
+    });
+  });
+}
+
+function refreshRiskBadge(itemId){
+  const it = findItem(itemId);
+  const row = document.querySelector(`.risk-row[data-riskrow="${cssEsc(itemId)}"]`);
+  if(!row) return;
+  row.classList.toggle("show", it.status==="parcial"||it.status==="no_cumple");
+  let badge = row.querySelector(".risk-badge");
+  if(!badge){ badge = document.createElement("div"); row.appendChild(badge); badge.className="risk-badge"; }
+  if(it.prob && it.impact){
+    const lv = riskLevel(it.prob*it.impact);
+    badge.style.background = lv.color;
+    badge.textContent = `Riesgo: ${lv.label} (${it.prob*it.impact})`;
+  } else {
+    badge.style.background = "var(--muted)";
+    badge.textContent = "Falta calificar";
+  }
+}
+
+// ---------- Firmas ----------
+function firmasHTML(){
+  return `
+  <div class="card sig-block">
+    <h2>Firma del Supervisor / Inspector</h2>
+    <div class="desc">Dibuja tu firma en el recuadro usando el dedo o mouse.</div>
+    <canvas class="sigpad" id="sigSupervisor"></canvas>
+    <button class="btn small" id="clearSupervisor" style="margin-top:6px;">Limpiar firma</button>
+    <div class="sig-name-row">
+      <div><label class="field-label">Nombre</label>
+        <select id="supName">
+          <option value="" ${(state.signatures.supervisorName||state.service.supervisor)===""?"selected":""}>Selecciona...</option>
+          ${SUPERVISORES.map(n=>`<option ${(state.signatures.supervisorName||state.service.supervisor)===n?"selected":""}>${n}</option>`).join("")}
+        </select>
+      </div>
+      <div><label class="field-label">Cargo</label><input type="text" id="supCargo" value="${esc(state.signatures.supervisorCargo)}"></div>
+    </div>
+  </div>
+  <div class="card sig-block">
+    <h2>Vo.Bo. Representante del Cliente (opcional)</h2>
+    <canvas class="sigpad" id="sigCliente"></canvas>
+    <button class="btn small" id="clearCliente" style="margin-top:6px;">Limpiar firma</button>
+    <div class="sig-name-row">
+      <div><label class="field-label">Nombre</label><input type="text" id="cliName" value="${esc(state.signatures.clienteName)}"></div>
+      <div><label class="field-label">Cargo</label><input type="text" id="cliCargo" value="${esc(state.signatures.clienteCargo)}"></div>
+    </div>
+  </div>`;
+}
+
+function setupSigPad(canvasId, storeKey){
+  const canvas = document.getElementById(canvasId);
+  const ratio = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 300, cssH = 140;
+  canvas.width = cssW*ratio; canvas.height = cssH*ratio;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(ratio,ratio);
+  ctx.lineWidth = 2; ctx.lineCap="round"; ctx.strokeStyle = "#16324f";
+  if(state.signatures[storeKey]){
+    const img = new Image();
+    img.onload = ()=> ctx.drawImage(img,0,0,cssW,cssH);
+    img.src = state.signatures[storeKey];
+  }
+  let drawing=false, last=null;
+  function pos(e){
+    const r = canvas.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return {x:(p.clientX-r.left), y:(p.clientY-r.top)};
+  }
+  function start(e){ drawing=true; last=pos(e); e.preventDefault(); }
+  function move(e){
+    if(!drawing) return;
+    const p = pos(e);
+    ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke();
+    last = p; e.preventDefault();
+  }
+  function end(){ if(!drawing) return; drawing=false; state.signatures[storeKey] = canvas.toDataURL("image/png"); }
+  canvas.addEventListener("mousedown",start); canvas.addEventListener("mousemove",move); window.addEventListener("mouseup",end);
+  canvas.addEventListener("touchstart",start,{passive:false}); canvas.addEventListener("touchmove",move,{passive:false}); canvas.addEventListener("touchend",end);
+}
+
+function bindFirmas(){
+  setupSigPad("sigSupervisor","supervisor");
+  setupSigPad("sigCliente","cliente");
+  document.getElementById("clearSupervisor").onclick = ()=>{ state.signatures.supervisor=null; renderContent(); };
+  document.getElementById("clearCliente").onclick = ()=>{ state.signatures.cliente=null; renderContent(); };
+  document.getElementById("supName").addEventListener("change",e=> state.signatures.supervisorName = e.target.value);
+  document.getElementById("supCargo").addEventListener("input",e=> state.signatures.supervisorCargo = e.target.value);
+  document.getElementById("cliName").addEventListener("input",e=> state.signatures.clienteName = e.target.value);
+  document.getElementById("cliCargo").addEventListener("input",e=> state.signatures.clienteCargo = e.target.value);
+}
+
+// ---------- Resumen ----------
+function resumenHTML(){
+  const ov = overallStats();
+  const findings = criticalFindings();
+  const catRows = state.categories.map(cat=>{
+    const s = categoryStats(cat);
+    const pct = s.pct===null?0:s.pct;
+    const color = pct>=80?"var(--green)":pct>=50?"var(--yellow)":"var(--red)";
+    return `<div class="summary-cat">
+      <div class="row"><span>${cat.name}</span><span>${s.pct===null?"Sin evaluar":s.pct+"%"}</span></div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+  }).join("");
+
+  // 5x5 matrix counts (probabilidad x impacto)
+  const matrixCounts = Array.from({length:5},()=>Array(5).fill(0));
+  state.categories.forEach(cat=>cat.items.forEach(it=>{
+    if((it.status==="parcial"||it.status==="no_cumple") && it.prob && it.impact){
+      matrixCounts[it.impact-1][it.prob-1]++;
+    }
+  }));
+  let matrixHTML = `<table class="matrix-table"><tr><th></th>${[1,2,3,4,5].map(p=>`<th>P${p}</th>`).join("")}</tr>`;
+  for(let impact=5; impact>=1; impact--){
+    matrixHTML += `<tr><th>I${impact}</th>`;
+    for(let prob=1; prob<=5; prob++){
+      const score = impact*prob;
+      const lv = riskLevel(score);
+      const n = matrixCounts[impact-1][prob-1];
+      matrixHTML += `<td style="background:${lv.color}">${n>0?n:""}</td>`;
+    }
+    matrixHTML += `</tr>`;
+  }
+  matrixHTML += `</table>`;
+
+  const findingsRows = findings.map(f=>`
+    <tr>
+      <td>${esc(f.cat)}</td>
+      <td>${esc(f.text)}</td>
+      <td><span class="lvl-pill" style="background:${riskLevel(f.score).color}">${f.level} (${f.score})</span></td>
+      <td>${plazoFor(f.level)}</td>
+      <td>${esc(f.rec)}</td>
+    </tr>`).join("");
+
+  return `
+  <div class="card">
+    <h2>Resumen ejecutivo</h2>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="num">${ov.progress}%</div><div class="lab">Recorrido completado</div></div>
+      <div class="kpi"><div class="num">${ov.compliance}%</div><div class="lab">Índice de cumplimiento</div></div>
+      <div class="kpi"><div class="num">${ov.vulnerability}%</div><div class="lab">Índice de vulnerabilidad</div></div>
+    </div>
+    <h2 style="font-size:15px;">Cumplimiento por categoría</h2>
+    ${catRows}
+  </div>
+  <div class="card">
+    <h2 style="font-size:15px;">Matriz de riesgo (Probabilidad × Impacto)</h2>
+    <div class="desc">Número de hallazgos ubicados en cada celda de la matriz.</div>
+    <div style="overflow-x:auto;">${matrixHTML}</div>
+  </div>
+  <div class="card">
+    <h2 style="font-size:15px;">Hallazgos priorizados (${findings.length})</h2>
+    ${findings.length===0 ? '<div class="desc">Aún no hay hallazgos de riesgo calificados (Parcial/No cumple con Probabilidad e Impacto).</div>' : `
+    <div style="overflow-x:auto;">
+    <table class="findings">
+      <tr><th>Categoría</th><th>Punto</th><th>Riesgo</th><th>Plazo sugerido</th><th>Recomendación</th></tr>
+      ${findingsRows}
+    </table>
+    </div>`}
+  </div>
+  <div class="card">
+    <h2 style="font-size:15px;">Generar reporte final</h2>
+    <div class="desc">Se generará un PDF profesional con portada, metodología, hallazgos por categoría, fotografías, matriz de riesgo, plan de acción y firmas.</div>
+    <button class="btn primary" id="btnGenPdf">📄 Generar PDF</button>
+    <span id="pdfStatus" style="font-size:12px;color:var(--muted);margin-left:10px;"></span>
+  </div>`;
+}
+function bindResumen(){
+  document.getElementById("btnGenPdf").addEventListener("click", generatePDF);
+}
+
+// ---------- utils ----------
+function esc(s){
+  if(s===undefined||s===null) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ---------- top bar bindings ----------
+document.getElementById("companyNameInput").addEventListener("input", (e)=>{ state.company.name = e.target.value; });
+document.getElementById("logoPicker").addEventListener("click", ()=> document.getElementById("logoInput").click());
+document.getElementById("logoInput").addEventListener("change", async (e)=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const res = await resizeImageFile(f, 300);
+  state.company.logo = res.data;
+  renderTopbarState();
+});
+
+// ---------- save / load / new ----------
+document.getElementById("btnSave").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(state)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const nameSlug = (state.service.cliente||"servicio").replace(/[^a-z0-9]+/gi,"_");
+  a.href = url; a.download = `avance_${nameSlug}_${state.service.fecha||""}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+});
+document.getElementById("btnLoad").addEventListener("click", ()=> document.getElementById("loadInput").click());
+document.getElementById("loadInput").addEventListener("change", (e)=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const loaded = JSON.parse(ev.target.result);
+      if(!loaded.client) loaded.client = { logo:null }; // compatibilidad con avances guardados antes de esta versión
+      if(!loaded.company) loaded.company = { name:DEFAULT_COMPANY_NAME, logo:null };
+      state = loaded;
+      currentSection = "portada";
+      renderAll();
+      initDefaultLogo();
+    }catch(err){ alert("No se pudo leer el archivo de avance: " + err.message); }
+  };
+  reader.readAsText(f);
+});
+document.getElementById("btnNew").addEventListener("click", ()=>{
+  if(confirm("¿Iniciar un nuevo servicio? Se perderá el avance no guardado.")){
+    state = freshState();
+    currentSection = "portada";
+    renderAll();
+    initDefaultLogo();
+  }
+});
+
+// =========================================================
+// PDF GENERATION
+// =========================================================
+async function generatePDF(){
+  const statusEl = document.getElementById("pdfStatus");
+  statusEl.textContent = "Generando PDF, por favor espera...";
+  await new Promise(r=>setTimeout(r,30)); // let UI paint
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:"pt", format:"a4"});
+  const PW = doc.internal.pageSize.getWidth();
+  const PH = doc.internal.pageSize.getHeight();
+  const MARGIN = 42;
+  let y = MARGIN;
+  let pageNum = 1;
+
+  function footer(){
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(140,140,140);
+    doc.text("Documento confidencial — Estudio de Vulnerabilidad", MARGIN, PH-20);
+    doc.text("Página " + pageNum, PW-MARGIN-40, PH-20);
+  }
+  function newPage(){ footer(); doc.addPage(); pageNum++; y = MARGIN; }
+  function ensure(h){ if(y + h > PH - 50) newPage(); }
+  function heading(text, size){
+    ensure(size+16);
+    doc.setFont("helvetica","bold"); doc.setFontSize(size||13); doc.setTextColor(26,26,26);
+    doc.text(text, MARGIN, y); y += size*1.1;
+    doc.setDrawColor(200,16,46); doc.setLineWidth(1);
+    doc.line(MARGIN, y-4, PW-MARGIN, y-4);
+    y += 8;
+  }
+  function para(text, size, color){
+    doc.setFont("helvetica","normal"); doc.setFontSize(size||10); doc.setTextColor.apply(doc, color||[40,40,40]);
+    const lines = doc.splitTextToSize(text, PW-MARGIN*2);
+    lines.forEach(line=>{
+      ensure(size*1.3||14);
+      doc.text(line, MARGIN, y);
+      y += (size||10)*1.35;
+    });
+  }
+  function labelValue(label, value){
+    ensure(14);
+    doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor(90,90,90);
+    doc.text(label+":", MARGIN, y);
+    doc.setFont("helvetica","normal"); doc.setTextColor(20,20,20);
+    doc.text(String(value||"—"), MARGIN+120, y);
+    y += 15;
+  }
+
+  // ---- COVER PAGE ----
+  doc.setFillColor(26,26,26);
+  doc.rect(0,0,PW,150,"F");
+  doc.setFillColor(200,16,46);
+  doc.rect(0,150,PW,4,"F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(200,16,46);
+  doc.text((state.company.name || "Empresa de Seguridad").toUpperCase(), MARGIN, 50);
+  doc.setFontSize(22); doc.setTextColor(255,255,255);
+  doc.text("ESTUDIO DE VULNERABILIDAD", MARGIN, 85);
+  doc.setFont("helvetica","normal"); doc.setFontSize(11); doc.setTextColor(210,210,210);
+  doc.text("Evaluación de riesgos de seguridad física — Metodología ASIS International", MARGIN, 108);
+  if(state.company.logo){
+    try{ doc.addImage(state.company.logo, "JPEG", PW-MARGIN-60, 30, 60, 60); }catch(e){}
+  }
+  y = 190;
+  heading("Datos del servicio", 13);
+  if(state.client.logo){
+    try{ doc.addImage(state.client.logo, "JPEG", PW-MARGIN-55, 168, 55, 55); }catch(e){}
+  }
+  labelValue("Cliente", state.service.cliente);
+  labelValue("Sitio / Instalación", state.service.sitio);
+  labelValue("Dirección", state.service.direccion);
+  labelValue("Tipo de instalación", state.service.tipo);
+  labelValue("Fecha del servicio", state.service.fecha);
+  labelValue("Supervisor / Inspector", state.service.supervisor);
+  y += 6;
+  heading("Alcance", 12);
+  para(state.service.alcance || "No especificado.", 10);
+  y += 10;
+  ensure(60);
+  doc.setFillColor(244,246,248); doc.rect(MARGIN, y, PW-MARGIN*2, 50, "F");
+  doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor(90,90,90);
+  const conf = doc.splitTextToSize("Documento confidencial. Este reporte constituye una opinión profesional basada en las condiciones observadas al momento de la evaluación y en la metodología de ASIS International. Se recomienda verificar el cumplimiento de la normativa local de seguridad privada y protección civil vigente en la jurisdicción del sitio.", PW-MARGIN*2-16);
+  doc.text(conf, MARGIN+8, y+14);
+
+  newPage();
+
+  // ---- EXECUTIVE SUMMARY ----
+  heading("Resumen ejecutivo y metodología", 14);
+  para("Este estudio se desarrolló siguiendo la estructura de 8 categorías de medidas de seguridad física de ASIS GDL FPSM (Facilities Physical Security Measures Guideline), el proceso de evaluación de riesgos de ASIS GDL GSRA (General Security Risk Assessment Guideline) y los principios de ASIS ESRM (Enterprise Security Risk Management Guideline, 2019). Se complementa con el marco de gestión de riesgos ISO 31000:2018 y los principios de Prevención del Delito mediante el Diseño Ambiental (CPTED). El nivel de riesgo de cada hallazgo se calculó como Probabilidad × Impacto (escala 1-5 cada uno), clasificado en Bajo, Medio, Alto y Crítico.", 9.7);
+  y += 6;
+  const ov = overallStats();
+  ensure(70);
+  doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(26,26,26);
+  doc.text("Índice de cumplimiento: " + ov.compliance + "%", MARGIN, y); y+=18;
+  doc.text("Índice de vulnerabilidad: " + ov.vulnerability + "%", MARGIN, y); y+=18;
+  doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(60,60,60);
+  doc.text("Puntos evaluados: " + ov.answered + " de " + ov.totalItems, MARGIN, y); y+=20;
+
+  heading("Cumplimiento por categoría", 12);
+  state.categories.forEach(cat=>{
+    const s = categoryStats(cat);
+    const pct = s.pct===null?0:s.pct;
+    ensure(22);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(30,30,30);
+    doc.text(cat.name, MARGIN, y);
+    doc.text((s.pct===null?"S/E":pct+"%"), PW-MARGIN-30, y);
+    y += 6;
+    doc.setFillColor(230,233,236); doc.rect(MARGIN, y, PW-MARGIN*2, 7, "F");
+    const col = pct>=80?[47,125,79]:pct>=50?[201,154,31]:[178,58,58];
+    doc.setFillColor.apply(doc,col);
+    doc.rect(MARGIN, y, (PW-MARGIN*2)*(pct/100), 7, "F");
+    y += 18;
+  });
+
+  newPage();
+
+  // ---- DETAIL PER CATEGORY ----
+  state.categories.forEach(cat=>{
+    heading(cat.name, 14);
+    cat.items.forEach((it,idx)=>{
+      ensure(50);
+      const statusLabelMap = {cumple:"CUMPLE", parcial:"PARCIAL", no_cumple:"NO CUMPLE", na:"N/A", null:"SIN EVALUAR"};
+      const statusColorMap = {cumple:[47,125,79], parcial:[201,154,31], no_cumple:[178,58,58], na:[120,120,120]};
+      const sLabel = statusLabelMap[it.status] || "SIN EVALUAR";
+      const sColor = statusColorMap[it.status] || [150,150,150];
+
+      doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor(20,20,20);
+      const itemLines = doc.splitTextToSize((idx+1)+". "+it.t, PW-MARGIN*2-70);
+      doc.text(itemLines, MARGIN, y);
+      doc.setFillColor.apply(doc, sColor);
+      doc.roundedRect(PW-MARGIN-58, y-9, 58, 13, 2, 2, "F");
+      doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(255,255,255);
+      doc.text(sLabel, PW-MARGIN-53, y);
+      y += itemLines.length*11 + 4;
+
+      if((it.status==="parcial"||it.status==="no_cumple") && it.prob && it.impact){
+        const score = it.prob*it.impact; const lv = riskLevel(score);
+        doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor.apply(doc, pdfColor(lv.label));
+        doc.text(`Riesgo: ${lv.label} (P${it.prob} × I${it.impact} = ${score})  ·  Plazo: ${plazoFor(lv.label)}`, MARGIN, y);
+        y += 12;
+        doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor(80,80,80);
+        const recLines = doc.splitTextToSize("Recomendación: " + it.r, PW-MARGIN*2);
+        recLines.forEach(l=>{ ensure(11); doc.text(l, MARGIN, y); y+=11; });
+      }
+      if(it.obs){
+        doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(60,60,60);
+        const obsLines = doc.splitTextToSize("Observación: " + it.obs, PW-MARGIN*2);
+        obsLines.forEach(l=>{ ensure(11); doc.text(l, MARGIN, y); y+=11; });
+      }
+      // photos (wraps rows correctly, tracking real row height)
+      if(it.photos && it.photos.length){
+        let px = MARGIN, rowH = 0;
+        const photoW = 90;
+        it.photos.forEach((p)=>{
+          const photoH = photoW * (p.h/p.w);
+          if(px + photoW > PW-MARGIN){ px = MARGIN; y += rowH + 8; rowH = 0; }
+          ensure(photoH+8);
+          try{ doc.addImage(p.data, "JPEG", px, y, photoW, photoH); }catch(e){}
+          px += photoW+8;
+          rowH = Math.max(rowH, photoH);
+        });
+        y += rowH + 12;
+      }
+      y += 6;
+      doc.setDrawColor(225,229,233); doc.setLineWidth(0.5);
+      doc.line(MARGIN, y-4, PW-MARGIN, y-4);
+    });
+    newPage();
+  });
+
+  // ---- RISK MATRIX ----
+  heading("Matriz de riesgo (Probabilidad × Impacto)", 14);
+  const matrixCounts = Array.from({length:5},()=>Array(5).fill(0));
+  state.categories.forEach(cat=>cat.items.forEach(it=>{
+    if((it.status==="parcial"||it.status==="no_cumple") && it.prob && it.impact) matrixCounts[it.impact-1][it.prob-1]++;
+  }));
+  const cellSize = 42, startX = MARGIN+30, startY = y+10;
+  ensure(cellSize*6+20);
+  doc.setFont("helvetica","bold"); doc.setFontSize(8);
+  for(let p=1;p<=5;p++){ doc.text("P"+p, startX+(p-1)*cellSize+cellSize/2-6, startY-6); }
+  for(let impact=5; impact>=1; impact--){
+    const rowY = startY + (5-impact)*cellSize;
+    doc.text("I"+impact, startX-20, rowY+cellSize/2+3);
+    for(let prob=1; prob<=5; prob++){
+      const score = impact*prob; const lv = riskLevel(score);
+      doc.setFillColor.apply(doc, pdfColor(lv.label));
+      doc.rect(startX+(prob-1)*cellSize, rowY, cellSize-2, cellSize-2, "F");
+      const n = matrixCounts[impact-1][prob-1];
+      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(255,255,255);
+      doc.text(n>0?String(n):"", startX+(prob-1)*cellSize+cellSize/2-4, rowY+cellSize/2+2);
+    }
+  }
+  y = startY + 5*cellSize + 20;
+
+  // ---- FINDINGS & ACTION PLAN ----
+  const findings = criticalFindings();
+  ensure(30);
+  heading("Hallazgos priorizados y plan de acción", 14);
+  if(findings.length===0){
+    para("No se registraron hallazgos calificados con probabilidad e impacto durante este recorrido.", 10);
+  } else {
+    findings.forEach((f,i)=>{
+      ensure(46);
+      const lv = riskLevel(f.score);
+      doc.setFillColor.apply(doc, pdfColor(lv.label));
+      doc.roundedRect(MARGIN, y-9, 56, 13, 2,2,"F");
+      doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(255,255,255);
+      doc.text(lv.label.toUpperCase()+" ("+f.score+")", MARGIN+4, y);
+      doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(20,20,20);
+      doc.text(f.cat, MARGIN+64, y);
+      y += 13;
+      doc.setFont("helvetica","normal"); doc.setFontSize(8.7); doc.setTextColor(40,40,40);
+      const tLines = doc.splitTextToSize((i+1)+". "+f.text, PW-MARGIN*2);
+      tLines.forEach(l=>{ ensure(11); doc.text(l, MARGIN, y); y+=11; });
+      doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor(80,80,80);
+      const rLines = doc.splitTextToSize("Recomendación: "+f.rec+"  ·  Plazo sugerido: "+plazoFor(f.level), PW-MARGIN*2);
+      rLines.forEach(l=>{ ensure(11); doc.text(l, MARGIN, y); y+=11; });
+      y += 8;
+      doc.setDrawColor(225,229,233); doc.line(MARGIN, y-4, PW-MARGIN, y-4);
+    });
+  }
+
+  newPage();
+
+  // ---- SIGNATURES ----
+  heading("Validación y firmas", 14);
+  para("La información contenida en este documento fue recabada mediante recorrido físico e inspección visual de la instalación en la fecha indicada. Las recomendaciones aquí presentadas buscan reducir el nivel de vulnerabilidad identificado y deben ser evaluadas en conjunto con el área legal y de cumplimiento normativo del cliente.", 9.5);
+  y += 20;
+  ensure(120);
+  if(state.signatures.supervisor){ try{ doc.addImage(state.signatures.supervisor,"PNG", MARGIN, y, 180, 70); }catch(e){} }
+  if(state.signatures.cliente){ try{ doc.addImage(state.signatures.cliente,"PNG", PW-MARGIN-180, y, 180, 70); }catch(e){} }
+  y += 74;
+  doc.setDrawColor(120,120,120);
+  doc.line(MARGIN, y, MARGIN+180, y);
+  doc.line(PW-MARGIN-180, y, PW-MARGIN, y);
+  y += 12;
+  doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(20,20,20);
+  doc.text(state.signatures.supervisorName || "Supervisor / Inspector", MARGIN, y);
+  doc.text(state.signatures.clienteName || "Representante del cliente", PW-MARGIN-180, y);
+  y += 12;
+  doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(90,90,90);
+  doc.text(state.signatures.supervisorCargo || "", MARGIN, y);
+  doc.text(state.signatures.clienteCargo || "", PW-MARGIN-180, y);
+
+  footer();
+
+  const nameSlug = (state.service.cliente||"cliente").replace(/[^a-z0-9]+/gi,"_");
+  doc.save(`Estudio_Vulnerabilidad_${nameSlug}_${state.service.fecha||""}.pdf`);
+  statusEl.textContent = "PDF generado ✔";
+}
+
+// ---------- init ----------
+renderAll();
+initDefaultLogo();
+</script>
+</body>
+</html>
