@@ -1,0 +1,8 @@
+{
+  "appId": "com.roansa.vulnerabilidad",
+  "appName": "ROANSA Vulnerabilidad",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  }
+}
