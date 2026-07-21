@@ -1,0 +1,50 @@
+{
+  "name": "roansa-vulnerabilidad-desktop",
+  "version": "1.0.0",
+  "description": "Estudio de Vulnerabilidad ASIS - ROANSA (version de escritorio)",
+  "main": "main.js",
+  "author": "ROANSA",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --mac",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.roansa.vulnerabilidad",
+    "productName": "ROANSA Vulnerabilidad",
+    "icon": "build/icon.png",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../index.html",
+        "to": "index.html"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.png",
+      "category": "public.app-category.business"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}
